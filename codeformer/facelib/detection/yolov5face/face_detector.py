@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+from torch import nn
 
 from codeformer.facelib.detection.yolov5face.models.yolo import Model
 from codeformer.facelib.detection.yolov5face.utils.datasets import letterbox
