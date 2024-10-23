@@ -93,37 +93,70 @@ class Detect(nn.Module):
         return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
 
 
+
+# Model configuration based on the provided YAML file
+model_config = {
+    'nc': 1,  # number of classes
+    'depth_multiple': 1.0,  # model depth multiple
+    'width_multiple': 1.0,  # layer channel multiple
+    'anchors': [
+        [4, 5, 8, 10, 13, 16],  # P3/8
+        [23, 29, 43, 55, 73, 105],  # P4/16
+        [146, 217, 231, 300, 335, 433],  # P5/32
+    ],
+    'backbone': [  # YOLOv5 backbone
+        [-1, 1, 'StemBlock', [32, 3, 2]],  # 0-P2/4
+        [-1, 1, 'ShuffleV2Block', [128, 2]],  # 1-P3/8
+        [-1, 3, 'ShuffleV2Block', [128, 1]],  # 2
+        [-1, 1, 'ShuffleV2Block', [256, 2]],  # 3-P4/16
+        [-1, 7, 'ShuffleV2Block', [256, 1]],  # 4
+        [-1, 1, 'ShuffleV2Block', [512, 2]],  # 5-P5/32
+        [-1, 3, 'ShuffleV2Block', [512, 1]],  # 6
+    ],
+    'head': [  # YOLOv5 head
+        [-1, 1, 'Conv', [128, 1, 1]],
+        [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
+        [[-1, 4], 1, 'Concat', [1]],  # cat backbone P4
+        [-1, 1, 'C3', [128, False]],  # 10
+
+        [-1, 1, 'Conv', [128, 1, 1]],
+        [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
+        [[-1, 2], 1, 'Concat', [1]],  # cat backbone P3
+        [-1, 1, 'C3', [128, False]],  # 14 (P3/8-small)
+
+        [-1, 1, 'Conv', [128, 3, 2]],
+        [[-1, 11], 1, 'Concat', [1]],  # cat head P4
+        [-1, 1, 'C3', [128, False]],  # 17 (P4/16-medium)
+
+        [-1, 1, 'Conv', [128, 3, 2]],
+        [[-1, 7], 1, 'Concat', [1]],  # cat head P5
+        [-1, 1, 'C3', [128, False]],  # 20 (P5/32-large)
+
+        [[14, 17, 20], 1, 'Detect', [1,  # nc
+                                    [[4, 5, 8, 10, 13, 16], 
+                                     [23, 29, 43, 55, 73, 105], 
+                                     [146, 217, 231, 300, 335, 433]]]]  # anchors
+    ],
+}
+
 class Model(nn.Module):
 
-    def __init__(self, cfg=None, ch=3, nc=1):  # Default to 1 class if nc is not provided
+    def __init__(self, config, ch=3):  # Remove cfg parameter
         super().__init__()
 
-        # If cfg is provided, load the YAML file
-        if cfg is not None:
-            self.yaml_file = Path(cfg).name
-            with Path(cfg).open(encoding="utf8") as f:
-                self.yaml = yaml.safe_load(f)  # Load model configuration from YAML
-        else:
-            # Initialize with default values if no cfg is provided
-            self.yaml = {
-                'nc': nc,  # Number of classes
-                'depth_multiple': 1.0,  # Model depth multiple
-                'width_multiple': 1.0,  # Layer channel multiple
-                'anchors': [
-                    [4, 5, 8, 10, 13, 16],  # P3/8
-                    [23, 29, 43, 55, 73, 105],  # P4/16
-                    [146, 217, 231, 300, 335, 433]  # P5/32
-                ],
-                'backbone': [],  # Populate with default backbone structure if needed
-                'head': []  # Populate with default head structure if needed
-            }
+        # Initialize with the provided config
+        self.yaml = config
+        self.yaml["ch"] = ch  # Set input channels
 
-        # Set input channels
-        self.yaml["ch"] = ch  # Input channels
+        # Create model structure
+        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])
+        
+        print("Model structure:", self.model)  # Debug output
+        
+        if not self.model:
+            raise ValueError("The model is empty. Check your configuration.")
 
-        # Create model structure based on the loaded or default YAML
-        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # Define model and savelist
-        self.names = [str(i) for i in range(self.yaml["nc"])]  # Default names based on number of classes
+        self.names = [str(i) for i in range(self.yaml["nc"])]
 
         # Build strides, anchors
         m = self.model[-1]  # Last layer (Detect)
@@ -134,24 +167,6 @@ class Model(nn.Module):
             check_anchor_order(m)
             self.stride = m.stride
             self._initialize_biases()  # Only run once
-
-        # Define model
-        ch = self.yaml["ch"] = self.yaml.get("ch", ch)  # input channels
-        if nc and nc != self.yaml["nc"]:
-            self.yaml["nc"] = nc  # override yaml value
-
-        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
-        self.names = [str(i) for i in range(self.yaml["nc"])]  # default names
-
-        # Build strides, anchors
-        m = self.model[-1]  # Detect()
-        if isinstance(m, Detect):
-            s = 128  # 2x min stride
-            m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
-            m.anchors /= m.stride.view(-1, 1, 1)
-            check_anchor_order(m)
-            self.stride = m.stride
-            self._initialize_biases()
 
     # This is original code block
     # def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):  # model, input channels, number of classes
