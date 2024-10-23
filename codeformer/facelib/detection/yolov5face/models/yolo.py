@@ -95,50 +95,56 @@ class Detect(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, ch=3, nc=None):
+    def __init__(self, cfg=None, ch=3, nc=None):
         super().__init__()
 
-        # Manually defined YAML configuration
-        self.yaml = {
-            'nc': 1,  # number of classes
-            'depth_multiple': 1.0,  # model depth multiple
-            'width_multiple': 1.0,  # layer channel multiple
-            'anchors': [
-                [4, 5, 8, 10, 13, 16],  # P3/8
-                [23, 29, 43, 55, 73, 105],  # P4/16
-                [146, 217, 231, 300, 335, 433]  # P5/32
-            ],
-            'backbone': [
-                [-1, 1, 'StemBlock', [32, 3, 2]],  # 0-P2/4
-                [-1, 1, 'ShuffleV2Block', [128, 2]],  # 1-P3/8
-                [-1, 3, 'ShuffleV2Block', [128, 1]],  # 2
-                [-1, 1, 'ShuffleV2Block', [256, 2]],  # 3-P4/16
-                [-1, 7, 'ShuffleV2Block', [256, 1]],  # 4
-                [-1, 1, 'ShuffleV2Block', [512, 2]],  # 5-P5/32
-                [-1, 3, 'ShuffleV2Block', [512, 1]],  # 6
-            ],
-            'head': [
-                [-1, 1, 'Conv', [128, 1, 1]],
-                [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
-                [[-1, 4], 1, 'Concat', [1]],  # cat backbone P4
-                [-1, 1, 'C3', [128, False]],  # 10
+        # If a configuration name is provided, load from file
+        if cfg:
+            self.yaml_file = Path(cfg).name
+            with Path(cfg).open(encoding="utf8") as f:
+                self.yaml = yaml.safe_load(f)  # Load model dict from YAML
+        else:
+            # Manually defined YAML configuration
+            self.yaml = {
+                'nc': 1,  # number of classes
+                'depth_multiple': 1.0,  # model depth multiple
+                'width_multiple': 1.0,  # layer channel multiple
+                'anchors': [
+                    [4, 5, 8, 10, 13, 16],  # P3/8
+                    [23, 29, 43, 55, 73, 105],  # P4/16
+                    [146, 217, 231, 300, 335, 433]  # P5/32
+                ],
+                'backbone': [
+                    [-1, 1, 'StemBlock', [32, 3, 2]],  # 0-P2/4
+                    [-1, 1, 'ShuffleV2Block', [128, 2]],  # 1-P3/8
+                    [-1, 3, 'ShuffleV2Block', [128, 1]],  # 2
+                    [-1, 1, 'ShuffleV2Block', [256, 2]],  # 3-P4/16
+                    [-1, 7, 'ShuffleV2Block', [256, 1]],  # 4
+                    [-1, 1, 'ShuffleV2Block', [512, 2]],  # 5-P5/32
+                    [-1, 3, 'ShuffleV2Block', [512, 1]],  # 6
+                ],
+                'head': [
+                    [-1, 1, 'Conv', [128, 1, 1]],
+                    [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
+                    [[-1, 4], 1, 'Concat', [1]],  # cat backbone P4
+                    [-1, 1, 'C3', [128, False]],  # 10
 
-                [-1, 1, 'Conv', [128, 1, 1]],
-                [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
-                [[-1, 2], 1, 'Concat', [1]],  # cat backbone P3
-                [-1, 1, 'C3', [128, False]],  # 14 (P3/8-small)
+                    [-1, 1, 'Conv', [128, 1, 1]],
+                    [-1, 1, 'nn.Upsample', [None, 2, 'nearest']],
+                    [[-1, 2], 1, 'Concat', [1]],  # cat backbone P3
+                    [-1, 1, 'C3', [128, False]],  # 14 (P3/8-small)
 
-                [-1, 1, 'Conv', [128, 3, 2]],
-                [[-1, 11], 1, 'Concat', [1]],  # cat head P4
-                [-1, 1, 'C3', [128, False]],  # 17 (P4/16-medium)
+                    [-1, 1, 'Conv', [128, 3, 2]],
+                    [[-1, 11], 1, 'Concat', [1]],  # cat head P4
+                    [-1, 1, 'C3', [128, False]],  # 17 (P4/16-medium)
 
-                [-1, 1, 'Conv', [128, 3, 2]],
-                [[-1, 7], 1, 'Concat', [1]],  # cat head P5
-                [-1, 1, 'C3', [128, False]],  # 20 (P5/32-large)
+                    [-1, 1, 'Conv', [128, 3, 2]],
+                    [[-1, 7], 1, 'Concat', [1]],  # cat head P5
+                    [-1, 1, 'C3', [128, False]],  # 20 (P5/32-large)
 
-                [[14, 17, 20], 1, 'Detect', [nc, self.yaml['anchors']]],  # Detect(P3, P4, P5)
-            ]
-        }
+                    [[14, 17, 20], 1, 'Detect', [nc, self.yaml['anchors']]],  # Detect(P3, P4, P5)
+                ]
+            }
 
         # Define model
         ch = self.yaml["ch"] = self.yaml.get("ch", ch)  # input channels
@@ -156,7 +162,7 @@ class Model(nn.Module):
             m.anchors /= m.stride.view(-1, 1, 1)
             check_anchor_order(m)
             self.stride = m.stride
-            self._initialize_biases()  # only run once
+            self._initialize_biases()
 
     # This is original code block
     # def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):  # model, input channels, number of classes
