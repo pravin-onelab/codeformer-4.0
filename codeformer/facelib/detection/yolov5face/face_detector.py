@@ -31,9 +31,10 @@ def isListempty(inList):
 
 
 class YoloDetector:
+    # this code block bypasses loading yolov5n.yaml
     def __init__(
         self,
-        config_name,
+        config_name=None,  # Allow None as default, since we are not using a file
         min_face=10,
         target_size=None,
         device="cuda",
@@ -42,13 +43,35 @@ class YoloDetector:
         config_name: name of .yaml config with network configuration from models/ folder.
         min_face : minimal face size in pixels.
         target_size : target size of smaller image axis (choose lower for faster work). e.g. 480, 720, 1080.
-                    None for original resolution.
+                      None for original resolution.
         """
         self._class_path = Path(__file__).parent.absolute()
         self.target_size = target_size
         self.min_face = min_face
-        self.detector = Model(cfg=config_name)
+        
+        # Use the Model without a config file
+        self.detector = Model(ch=3, nc=1)  # Use default input channels and number of classes
         self.device = device
+
+    # # This is original code block
+    # def __init__(
+    #     self,
+    #     config_name,
+    #     min_face=10,
+    #     target_size=None,
+    #     device="cuda",
+    # ):
+    #     """
+    #     config_name: name of .yaml config with network configuration from models/ folder.
+    #     min_face : minimal face size in pixels.
+    #     target_size : target size of smaller image axis (choose lower for faster work). e.g. 480, 720, 1080.
+    #                 None for original resolution.
+    #     """
+    #     self._class_path = Path(__file__).parent.absolute()
+    #     self.target_size = target_size
+    #     self.min_face = min_face
+    #     self.detector = Model(cfg=config_name)
+    #     self.device = device
 
     def _preprocess(self, imgs):
         """
