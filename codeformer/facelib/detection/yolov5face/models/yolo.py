@@ -95,85 +95,12 @@ class Detect(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):
+    # Commented this block to load yolov5n.yaml from current directory
+    def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):  # model, input channels, number of classes
         super().__init__()
-        
-        # Get Python version dynamically
-        import sys, os
-        python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
-        
-        # Base path
-        base_path = "/usr/local/lib/python3.10/dist-packages/codeformer/facelib/detection/yolov5face/models"
-        yaml_path = os.path.join(base_path, "yolov5n.yaml")
-        
-        # Debug: List all files in the directory
-        print(f"Checking directory: {base_path}")
-        if os.path.exists(base_path):
-            print("Files in directory:")
-            print(os.listdir(base_path))
-        else:
-            print("Directory does not exist!")
-            
-        # Try to find the file in package resources
-        import pkg_resources
-        try:
-            yaml_path = pkg_resources.resource_filename('codeformer', 'facelib/detection/yolov5face/models/yolov5n.yaml')
-            print(f"Package resource path: {yaml_path}")
-        except Exception as e:
-            print(f"Package resource error: {e}")
-
-        self.yaml_file = Path(yaml_path).name
-        try:
-            with open(yaml_path, 'r', encoding="utf8") as f:
-                self.yaml = yaml.safe_load(f)  # model dict
-        except FileNotFoundError:
-            print(f"Failed to find config at: {yaml_path}")
-            print(f"Python version: {python_version}")
-            
-            # Try alternative paths
-            alternative_paths = [
-                os.path.join(os.path.dirname(__file__), "yolov5n.yaml"),
-                os.path.join(os.path.dirname(__file__), "models", "yolov5n.yaml"),
-                "/usr/local/lib/python3.10/dist-packages/codeformer/facelib/detection/yolov5face/models/yolov5n.yaml"
-            ]
-            
-            print("\nTrying alternative paths:")
-            for path in alternative_paths:
-                print(f"Checking: {path}")
-                print(f"Exists: {os.path.exists(path)}")
-            
-            raise
-
-    # # Commented this block to load yolov5n.yaml from current directory
-    # def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):
-    #     super().__init__()
-        
-    #     # Fix the path resolution
-    #     if not Path(cfg).is_absolute():
-    #         # Get the directory where yolo.py is located
-    #         current_dir = Path(__file__).parent
-    #         config_path = current_dir / cfg
-    #     else:
-    #         config_path = Path(cfg)
-            
-    #     self.yaml_file = config_path.name
-    #     try:
-    #         with config_path.open(encoding="utf8") as f:
-    #             self.yaml = yaml.safe_load(f)  # model dict
-    #     except FileNotFoundError:
-    #         # Debug information
-    #         print(f"Failed to find config at: {config_path}")
-    #         print(f"Current directory: {Path(__file__).parent}")
-    #         raise
-
-        # Rest of the initialization code...
-
-    ## Commented this block to load yolov5n.yaml from current directory
-    # def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None):  # model, input channels, number of classes
-    #     super().__init__()
-    #     self.yaml_file = Path(cfg).name
-    #     with Path(cfg).open(encoding="utf8") as f:
-    #         self.yaml = yaml.safe_load(f)  # model dict
+        self.yaml_file = Path(cfg).name
+        with Path(cfg).open(encoding="utf8") as f:
+            self.yaml = yaml.safe_load(f)  # model dict
 
         # Define model
         ch = self.yaml["ch"] = self.yaml.get("ch", ch)  # input channels
