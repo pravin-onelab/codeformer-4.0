@@ -34,13 +34,11 @@ class YoloDetector:
     # this code block bypasses loading yolov5n.yaml
     def __init__(
         self,
-        config_name=None,  # Allow None as default, since we are not using a file
         min_face=10,
         target_size=None,
         device="cuda",
     ):
         """
-        config_name: name of .yaml config with network configuration from models/ folder.
         min_face : minimal face size in pixels.
         target_size : target size of smaller image axis (choose lower for faster work). e.g. 480, 720, 1080.
                       None for original resolution.
@@ -48,10 +46,52 @@ class YoloDetector:
         self._class_path = Path(__file__).parent.absolute()
         self.target_size = target_size
         self.min_face = min_face
-        
-        # Use the Model without a config file
-        self.detector = Model(ch=3, nc=1)  # Use default input channels and number of classes
         self.device = device
+
+        # Initialize with predefined YAML configuration
+        self.yaml_config = {
+            'nc': 1,  # Number of classes
+            'depth_multiple': 1.0,
+            'width_multiple': 1.0,
+            'anchors': [
+                [4, 5, 8, 10, 13, 16],
+                [23, 29, 43, 55, 73, 105],
+                [146, 217, 231, 300, 335, 433]
+            ],
+            'backbone': [
+                [-1, 1, StemBlock, [32, 3, 2]],    # 0-P2/4
+                [-1, 1, ShuffleV2Block, [128, 2]], # 1-P3/8
+                [-1, 3, ShuffleV2Block, [128, 1]], # 2
+                [-1, 1, ShuffleV2Block, [256, 2]], # 3-P4/16
+                [-1, 7, ShuffleV2Block, [256, 1]], # 4
+                [-1, 1, ShuffleV2Block, [512, 2]], # 5-P5/32
+                [-1, 3, ShuffleV2Block, [512, 1]], # 6
+            ],
+            'head': [
+                [-1, 1, Conv, [128, 1, 1]],
+                [-1, 1, nn.Upsample, [None, 2, 'nearest']],
+                [[-1, 4], 1, Concat, [1]],  # cat backbone P4
+                [-1, 1, C3, [128, False]],  # 10
+
+                [-1, 1, Conv, [128, 1, 1]],
+                [-1, 1, nn.Upsample, [None, 2, 'nearest']],
+                [[-1, 2], 1, Concat, [1]],  # cat backbone P3
+                [-1, 1, C3, [128, False]],  # 14 (P3/8-small)
+
+                [-1, 1, Conv, [128, 3, 2]],
+                [[-1, 11], 1, Concat, [1]],  # cat head P4
+                [-1, 1, C3, [128, False]],  # 17 (P4/16-medium)
+
+                [-1, 1, Conv, [128, 3, 2]],
+                [[-1, 7], 1, Concat, [1]],  # cat head P5
+                [-1, 1, C3, [128, False]],  # 20 (P5/32-large)
+
+                [[14, 17, 20], 1, Detect, [self.yaml_config['nc'], self.yaml_config['anchors']]],  # Detect(P3, P4, P5)
+            ]
+        }
+
+        # Initialize the Model with the predefined configuration
+        self.detector = Model(config=self.yaml_config, ch=3)
 
     # # This is original code block
     # def __init__(
