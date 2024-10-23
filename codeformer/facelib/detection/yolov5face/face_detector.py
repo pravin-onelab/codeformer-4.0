@@ -8,6 +8,7 @@ import torch
 
 from codeformer.facelib.detection.yolov5face.models.yolo import Model
 from codeformer.facelib.detection.yolov5face.utils.datasets import letterbox
+from codeformer.facelib.detection.yolov5face.models.common import StemBlock, ShuffleV2Block, Conv, Concat, C3
 from codeformer.facelib.detection.yolov5face.utils.general import (
     check_img_size,
     non_max_suppression_face,
