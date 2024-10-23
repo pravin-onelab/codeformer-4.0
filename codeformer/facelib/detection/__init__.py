@@ -44,23 +44,25 @@ def init_retinaface_model(model_name, half=False, device="cuda"):
 
     return model
 
-
+# This is updated code to bypass config_name parameter
 def init_yolov5face_model(model_name, device="cuda"):
     if model_name == "YOLOv5l":
-        model = YoloDetector(config_name="facelib/detection/yolov5face/models/yolov5l.yaml", device=device)
+        model = YoloDetector(min_face=10, target_size=None, device=device)  # No config_name
         model_url = "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/yolov5l-face.pth"
     elif model_name == "YOLOv5n":
-        model = YoloDetector(config_name="facelib/detection/yolov5face/models/yolov5n.yaml", device=device)
+        model = YoloDetector(min_face=10, target_size=None, device=device)  # No config_name
         model_url = "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/yolov5n-face.pth"
     else:
         raise NotImplementedError(f"{model_name} is not implemented.")
 
+    # Load model weights
     model_path = load_file_from_url(url=model_url, model_dir="weights/facelib", progress=True, file_name=None)
     load_net = torch.load(model_path, map_location=lambda storage, loc: storage)
     model.detector.load_state_dict(load_net, strict=True)
     model.detector.eval()
     model.detector = model.detector.to(device).float()
 
+    # Set module compatibility
     for m in model.detector.modules():
         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
             m.inplace = True  # pytorch 1.7.0 compatibility
@@ -68,6 +70,33 @@ def init_yolov5face_model(model_name, device="cuda"):
             m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
 
     return model
+
+
+
+# # This is original code
+# def init_yolov5face_model(model_name, device="cuda"):
+#     if model_name == "YOLOv5l":
+#         model = YoloDetector(config_name="facelib/detection/yolov5face/models/yolov5l.yaml", device=device)
+#         model_url = "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/yolov5l-face.pth"
+#     elif model_name == "YOLOv5n":
+#         model = YoloDetector(config_name="facelib/detection/yolov5face/models/yolov5n.yaml", device=device)
+#         model_url = "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/yolov5n-face.pth"
+#     else:
+#         raise NotImplementedError(f"{model_name} is not implemented.")
+
+#     model_path = load_file_from_url(url=model_url, model_dir="weights/facelib", progress=True, file_name=None)
+#     load_net = torch.load(model_path, map_location=lambda storage, loc: storage)
+#     model.detector.load_state_dict(load_net, strict=True)
+#     model.detector.eval()
+#     model.detector = model.detector.to(device).float()
+
+#     for m in model.detector.modules():
+#         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
+#             m.inplace = True  # pytorch 1.7.0 compatibility
+#         elif isinstance(m, Conv):
+#             m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
+
+#     return model
 
 
 # Download from Google Drive
